@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { readFile } from 'fs/promises';
 
 export interface OutboundEmailOptions {
   to: string;
@@ -19,8 +20,19 @@ export interface OutboundEmailOptions {
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter | null = null;
+  private brevoApiKey: string | null = null;
 
   constructor(private config: ConfigService) {
+    // Brevo's HTTP API (port 443) is preferred over SMTP: many hosts (e.g. Railway)
+    // block outbound SMTP ports 25/465/587 by default, which makes nodemailer hang
+    // until connection timeout with no way around it short of a platform exception.
+    const apiKey = this.config.get<string>('BREVO_API_KEY');
+    if (apiKey) {
+      this.brevoApiKey = apiKey;
+      this.logger.log('Brevo HTTP API email service configured');
+      return;
+    }
+
     const host = this.config.get<string>('SMTP_HOST');
     const user = this.config.get<string>('SMTP_USER');
     const pass = this.config.get<string>('SMTP_PASS');
@@ -67,9 +79,77 @@ export class EmailService {
     return `<${safeLocal}@${domain}>`;
   }
 
+  private async sendViaBrevoApi(
+    options: OutboundEmailOptions,
+    from: string,
+    messageId: string,
+  ): Promise<{ messageId: string }> {
+    const attachment = options.attachments?.length
+      ? await Promise.all(
+          options.attachments.map(async (a) => {
+            let content = a.content;
+            if (!content && a.path) {
+              content = await readFile(a.path);
+            }
+            const base64 =
+              typeof content === 'string' ? Buffer.from(content).toString('base64') : (content as Buffer).toString('base64');
+            return { name: a.filename, content: base64 };
+          }),
+        )
+      : undefined;
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': this.brevoApiKey!,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: this.fromName, email: from },
+        to: [{ email: options.to }],
+        subject: options.subject,
+        htmlContent: options.html,
+        textContent: options.text,
+        replyTo: { email: options.replyTo || from },
+        headers: {
+          'Message-Id': messageId,
+          ...(options.inReplyTo ? { 'In-Reply-To': options.inReplyTo } : {}),
+          ...(options.references ? { References: options.references } : {}),
+        },
+        attachment,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      const reason = `${res.status} ${res.statusText} ${body}`.trim();
+      this.logger.error(`Brevo API send failed to ${options.to}: ${reason}`);
+      if (res.status === 401) {
+        throw new BadRequestException(
+          'Email delivery failed: Brevo API key is invalid. Check BREVO_API_KEY (Settings → SMTP & API → API keys & MCP).',
+        );
+      }
+      if (/sender|not.*valid|not.*verified/i.test(body)) {
+        throw new BadRequestException(
+          `Email delivery failed: sender ${from} is not verified in Brevo. Verify it under Senders & IPs, then set EMAIL_FROM to that address.`,
+        );
+      }
+      throw new BadRequestException(`Email delivery failed: ${reason}`);
+    }
+
+    const data = (await res.json().catch(() => ({}))) as { messageId?: string };
+    this.logger.log(`Email sent to ${options.to}: ${options.subject}`);
+    return { messageId: data.messageId || messageId };
+  }
+
   async sendOutbound(options: OutboundEmailOptions): Promise<{ messageId: string }> {
     const from = this.fromAddress;
     const messageId = options.messageId ?? this.buildMessageId(`msg-${Date.now()}`);
+
+    if (this.brevoApiKey) {
+      return this.sendViaBrevoApi(options, from, messageId);
+    }
 
     if (this.transporter) {
       try {
