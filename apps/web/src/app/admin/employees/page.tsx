@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { UserPlus } from 'lucide-react';
 import { UserRole } from '@pulseai/types';
 import { useToast } from '@/contexts/toast-context';
+import { Modal } from '@/components/ui/modal';
 import {
   computeMonthlyPackage,
   formatMoney,
@@ -115,6 +116,7 @@ export default function AdminEmployeesPage() {
   const [viewingName, setViewingName] = useState('');
   const [salaryDetail, setSalaryDetail] = useState<SalaryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [actionsFor, setActionsFor] = useState<Employee | null>(null);
 
   const loadEmployees = () => {
     if (!token || !ready) return;
@@ -290,41 +292,13 @@ export default function AdminEmployeesPage() {
                         </span>
                       </td>
                       <td className="py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="text-sm font-medium text-emerald-600 hover:underline"
-                            onClick={() => openSalaryDetails(emp)}
-                          >
-                            Salary details
-                          </button>
-                          <button
-                            type="button"
-                            className="text-sm font-medium text-emerald-600 hover:underline"
-                            onClick={() => {
-                              setEditingId(emp.id);
-                              setEditingName(`${emp.user.firstName ?? ''} ${emp.user.lastName ?? ''}`.trim());
-                            }}
-                          >
-                            Edit
-                          </button>
-                          {canManageInvitations && (
-                            <button
-                              type="button"
-                              className="text-sm font-medium text-emerald-600 hover:underline"
-                              onClick={() => handleToggleManager(emp)}
-                            >
-                              {emp.user.role === 'MANAGER' ? 'Remove manager access' : 'Make manager'}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="text-sm font-medium text-red-600 hover:underline"
-                            onClick={() => handleDelete(emp)}
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          className="rounded-md border border-slate-200 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                          onClick={() => setActionsFor(emp)}
+                        >
+                          Actions
+                        </button>
                       </td>
                     </tr>
                   );
@@ -342,6 +316,61 @@ export default function AdminEmployeesPage() {
           companyQuery={companyQuery}
           onCreated={loadEmployees}
         />
+
+        <Modal
+          open={!!actionsFor}
+          onClose={() => setActionsFor(null)}
+          title={actionsFor ? `${actionsFor.user.firstName ?? ''} ${actionsFor.user.lastName ?? ''}`.trim() || actionsFor.user.email : ''}
+          subtitle={actionsFor?.department?.name}
+        >
+          {actionsFor && (
+            <div className="flex flex-col divide-y divide-slate-100">
+              <button
+                type="button"
+                className="py-3 text-left text-sm font-medium text-slate-700 hover:text-emerald-700"
+                onClick={() => {
+                  openSalaryDetails(actionsFor);
+                  setActionsFor(null);
+                }}
+              >
+                Salary details
+              </button>
+              <button
+                type="button"
+                className="py-3 text-left text-sm font-medium text-slate-700 hover:text-emerald-700"
+                onClick={() => {
+                  setEditingId(actionsFor.id);
+                  setEditingName(`${actionsFor.user.firstName ?? ''} ${actionsFor.user.lastName ?? ''}`.trim());
+                  setActionsFor(null);
+                }}
+              >
+                Edit salary
+              </button>
+              {canManageInvitations && (
+                <button
+                  type="button"
+                  className="py-3 text-left text-sm font-medium text-slate-700 hover:text-emerald-700"
+                  onClick={() => {
+                    handleToggleManager(actionsFor);
+                    setActionsFor(null);
+                  }}
+                >
+                  {actionsFor.user.role === 'MANAGER' ? 'Remove manager access' : 'Make manager'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="py-3 text-left text-sm font-medium text-red-600 hover:text-red-700"
+                onClick={() => {
+                  handleDelete(actionsFor);
+                  setActionsFor(null);
+                }}
+              >
+                Delete employee
+              </button>
+            </div>
+          )}
+        </Modal>
 
         {viewingId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">

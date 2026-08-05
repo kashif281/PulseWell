@@ -49,9 +49,13 @@ export function AddEmployeeModal({
 
   useEffect(() => {
     if (!open || !token) return;
-    api<Department[]>('/company/departments', { token }).then((r) => setDepartments(r.data ?? []));
-    api<Manager[]>(`/employees${companyQuery}`, { token }).then((r) => setManagers(r.data ?? []));
-  }, [open, token, companyQuery]);
+    api<Department[]>(`/company/departments${companyQuery}`, { token })
+      .then((r) => setDepartments(r.data ?? []))
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load departments'));
+    api<Manager[]>(`/employees${companyQuery}`, { token })
+      .then((r) => setManagers(r.data ?? []))
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load managers'));
+  }, [open, token, companyQuery, toast]);
 
   const reset = () => {
     setForm({
