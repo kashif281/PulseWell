@@ -47,6 +47,19 @@ const employeeNav = [
   { href: '/profile', label: 'Profile', icon: User },
 ];
 
+const managerNav = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/attendance', label: 'Attendance', icon: Clock },
+  { href: '/admin/employees', label: 'Employees', icon: Users },
+  { href: '/team', label: "Who's Working", icon: Users },
+  { href: '/leave', label: 'Leave', icon: Calendar },
+  { href: '/equipment', label: 'My Equipment', icon: Package },
+  { href: '/salary', label: 'My Salary', icon: Wallet },
+  { href: '/learning', label: 'Learning', icon: GraduationCap },
+  { href: '/policies', label: 'Policies', icon: ScrollText },
+  { href: '/profile', label: 'Profile', icon: User },
+];
+
 const adminNav = [
   { href: '/admin/dashboard', label: 'Company Dashboard', icon: LayoutDashboard },
   { href: '/admin/attendance', label: 'Attendance', icon: Clock },
@@ -133,10 +146,12 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
   const isCompanyAdmin = user?.role === UserRole.COMPANY_ADMIN;
+  const isManager = user?.role === UserRole.MANAGER;
 
   let nav = employeeNav;
   if (isSuperAdmin) nav = [...superAdminNav, ...superAdminCompanyNav];
   else if (isCompanyAdmin) nav = adminNav;
+  else if (isManager) nav = managerNav;
 
   const handleLogout = () => {
     logout();

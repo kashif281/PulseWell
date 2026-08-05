@@ -1,5 +1,11 @@
-import { IsString, IsOptional, IsInt, IsNumber, IsArray, IsEnum, IsNotEmpty } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsInt, IsNumber, IsArray, IsEnum, IsNotEmpty, IsIn } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class UpdateEmployeeRoleDto {
+  @ApiProperty({ enum: ['MANAGER', 'EMPLOYEE'] })
+  @IsIn(['MANAGER', 'EMPLOYEE'])
+  role!: 'MANAGER' | 'EMPLOYEE';
+}
 
 export class UpdateEmployeeProfileDto {
   @ApiPropertyOptional()

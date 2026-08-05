@@ -14,6 +14,8 @@ import { useAdminCompanyScope } from '@/hooks/use-admin-company-scope';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { UserPlus } from 'lucide-react';
+import { UserRole } from '@pulseai/types';
+import { useToast } from '@/contexts/toast-context';
 import {
   computeMonthlyPackage,
   formatMoney,
@@ -48,7 +50,7 @@ interface Employee {
     currency?: string;
   } | null;
   payrollItems?: PayrollItemRow[];
-  user: { firstName?: string; lastName?: string; email: string; isActive: boolean };
+  user: { firstName?: string; lastName?: string; email: string; isActive: boolean; role?: string };
   department?: { name: string };
   position?: string;
   employmentStatus?: string | null;
@@ -99,7 +101,9 @@ function formatLastPaid(emp: Employee) {
 }
 
 export default function AdminEmployeesPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const toast = useToast();
+  const canManageInvitations = user?.role === UserRole.COMPANY_ADMIN || user?.role === UserRole.SUPER_ADMIN;
   const { isSuperAdmin, companies, companyId, setCompanyId, companyQuery, ready } =
     useAdminCompanyScope();
   const [tab, setTab] = useState<'team' | 'invitations' | 'import'>('team');
@@ -150,6 +154,34 @@ export default function AdminEmployeesPage() {
     setViewingName(`${emp.user.firstName ?? ''} ${emp.user.lastName ?? ''}`.trim());
   };
 
+  const handleToggleManager = async (emp: Employee) => {
+    if (!token) return;
+    const nextRole = emp.user.role === 'MANAGER' ? 'EMPLOYEE' : 'MANAGER';
+    try {
+      await api(`/employees/${emp.id}/role${companyQuery}`, {
+        method: 'PUT',
+        token,
+        body: JSON.stringify({ role: nextRole }),
+      });
+      toast.success(nextRole === 'MANAGER' ? 'Promoted to Manager' : 'Manager access removed');
+      loadEmployees();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update role');
+    }
+  };
+
+  const handleDelete = async (emp: Employee) => {
+    const name = `${emp.user.firstName ?? ''} ${emp.user.lastName ?? ''}`.trim() || emp.user.email;
+    if (!token || !confirm(`Remove ${name} from the team? Their account will be deactivated and their history preserved.`)) return;
+    try {
+      await api(`/employees/${emp.id}${companyQuery}`, { method: 'DELETE', token });
+      toast.success(`${name} removed from the team`);
+      loadEmployees();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to remove employee');
+    }
+  };
+
   return (
     <ProtectedLayout>
       <div className="space-y-6">
@@ -158,10 +190,12 @@ export default function AdminEmployeesPage() {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Employees</h1>
             <p className="text-slate-500">Invite, onboard, and manage your team</p>
           </div>
-          <Button onClick={() => setAddOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add employee
-          </Button>
+          {canManageInvitations && (
+            <Button onClick={() => setAddOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add employee
+            </Button>
+          )}
         </div>
 
         {isSuperAdmin && (
@@ -172,8 +206,12 @@ export default function AdminEmployeesPage() {
           {(
             [
               { id: 'team' as const, label: 'Team roster' },
-              { id: 'invitations' as const, label: 'Invitations' },
-              { id: 'import' as const, label: 'Bulk import' },
+              ...(canManageInvitations
+                ? [
+                    { id: 'invitations' as const, label: 'Invitations' },
+                    { id: 'import' as const, label: 'Bulk import' },
+                  ]
+                : []),
             ] as const
           ).map((t) => (
             <button
@@ -269,6 +307,22 @@ export default function AdminEmployeesPage() {
                             }}
                           >
                             Edit
+                          </button>
+                          {canManageInvitations && (
+                            <button
+                              type="button"
+                              className="text-sm font-medium text-emerald-600 hover:underline"
+                              onClick={() => handleToggleManager(emp)}
+                            >
+                              {emp.user.role === 'MANAGER' ? 'Remove manager access' : 'Make manager'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="text-sm font-medium text-red-600 hover:underline"
+                            onClick={() => handleDelete(emp)}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>

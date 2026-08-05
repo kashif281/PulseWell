@@ -1,9 +1,14 @@
-import { Controller, Get, Put, Post, Body, Query, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Query, Param, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { EmployeesService } from './employees.service';
 import { EmployeeInvitationService } from './employee-invitation.service';
-import { UpdateEmployeeProfileDto, CreateGoalDto, SetLocationFromCoordinatesDto } from './dto/employee.dto';
+import {
+  UpdateEmployeeProfileDto,
+  CreateGoalDto,
+  SetLocationFromCoordinatesDto,
+  UpdateEmployeeRoleDto,
+} from './dto/employee.dto';
 import {
   BulkImportCommitDto,
   BulkImportPreviewDto,
@@ -91,7 +96,7 @@ export class EmployeesController {
   }
 
   @Get()
-  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: 'List company employees' })
   list(
     @CurrentUser() user: JwtPayload,
@@ -100,6 +105,33 @@ export class EmployeesController {
   ) {
     const targetCompanyId = resolveCompanyId(user, companyId);
     return this.employeesService.listEmployees(targetCompanyId, search);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Offboard (deactivate) an employee' })
+  deleteEmployee(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Query('companyId') companyId?: string,
+  ) {
+    const cid = resolveCompanyId(user, companyId);
+    if (!cid) throw new BadRequestException('Company required');
+    return this.employeesService.offboardEmployee(cid, id);
+  }
+
+  @Put(':id/role')
+  @Roles(UserRole.COMPANY_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Promote/demote an employee between Manager and Employee' })
+  updateRole(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateEmployeeRoleDto,
+    @Query('companyId') companyId?: string,
+  ) {
+    const cid = resolveCompanyId(user, companyId);
+    if (!cid) throw new BadRequestException('Company required');
+    return this.employeesService.updateEmployeeRole(cid, id, dto.role === 'MANAGER' ? UserRole.MANAGER : UserRole.EMPLOYEE);
   }
 
   @Get('wellness-monitor')

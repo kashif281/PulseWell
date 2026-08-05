@@ -41,6 +41,9 @@ export class AuthService {
               create: { plan: 'FREE', status: 'ACTIVE' },
             },
             wellnessConfig: { create: {} },
+            departments: {
+              create: [{ name: 'Engineering' }, { name: 'Human Resources' }, { name: 'Business Development' }],
+            },
           },
         });
         companyId = company.id;

@@ -4,6 +4,7 @@ import { LocationService } from '../location/location.service';
 import { UpdateEmployeeProfileDto, CreateGoalDto } from './dto/employee.dto';
 import {
   UserRole,
+  EmploymentStatus,
 } from '@prisma/client';
 import { FieldEncryptionService } from '../common/security/field-encryption.service';
 
@@ -32,10 +33,11 @@ export class EmployeesService {
     private fields: FieldEncryptionService,
   ) {}
 
-  async listEmployees(companyId?: string, search?: string) {
+  async listEmployees(companyId?: string, search?: string, includeTerminated = false) {
     const employees = await this.prisma.employee.findMany({
       where: {
         ...(companyId && { companyId }),
+        ...(!includeTerminated && { employmentStatus: { not: EmploymentStatus.TERMINATED } }),
         ...(search && {
           user: {
             OR: [
@@ -47,7 +49,7 @@ export class EmployeesService {
         }),
       },
       include: {
-        user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true, isActive: true, lastLoginAt: true } },
+        user: { select: { id: true, email: true, firstName: true, lastName: true, avatarUrl: true, isActive: true, lastLoginAt: true, role: true } },
         department: true,
         company: { select: { id: true, name: true } },
         manager: { include: { user: { select: { firstName: true, lastName: true } } } },
@@ -81,6 +83,49 @@ export class EmployeesService {
         ...safe
       }) => safe,
     );
+  }
+
+  async offboardEmployee(companyId: string, employeeId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, companyId },
+      include: { user: true },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+    if (employee.user.role === UserRole.COMPANY_ADMIN || employee.user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Cannot delete an admin account this way');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.employee.update({
+        where: { id: employeeId },
+        data: { employmentStatus: EmploymentStatus.TERMINATED },
+      }),
+      this.prisma.user.update({
+        where: { id: employee.userId },
+        data: { isActive: false },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId: employee.userId } }),
+    ]);
+
+    return { success: true };
+  }
+
+  async updateEmployeeRole(companyId: string, employeeId: string, role: typeof UserRole.MANAGER | typeof UserRole.EMPLOYEE) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, companyId },
+      include: { user: true },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+    if (employee.user.role === UserRole.COMPANY_ADMIN || employee.user.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Cannot change an admin account role this way');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: employee.userId },
+      data: { role },
+      select: { id: true, role: true },
+    });
+    return user;
   }
 
   async getWellnessMonitor(user: { role: UserRole; companyId?: string | null }, companyId?: string) {
