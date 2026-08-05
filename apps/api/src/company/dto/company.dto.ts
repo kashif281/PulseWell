@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsInt, IsNumber, IsArray, IsEnum } from 'class-validator';
 import { PresenceVisibility } from '@prisma/client';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateCompanyDto {
   @ApiProperty()
@@ -78,7 +78,7 @@ export class CreateCompanyDto {
   officeLongitude?: number;
 }
 
-export class UpdateCompanyDto extends CreateCompanyDto {}
+export class UpdateCompanyDto extends PartialType(CreateCompanyDto) {}
 
 export class CreateDepartmentDto {
   @ApiProperty()
