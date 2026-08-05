@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nura
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: nura
+    volumes:
+      - nura_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nura -d nura']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 5002
+      DATABASE_URL: postgresql://nura:${POSTGRES_PASSWORD}@postgres:5432/nura?schema=public
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4000}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY is required}
+      EMAIL_WEBHOOK_SECRET: ${EMAIL_WEBHOOK_SECRET:?EMAIL_WEBHOOK_SECRET is required}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Nura HR}
+      EMAIL_MESSAGE_DOMAIN: ${EMAIL_MESSAGE_DOMAIN:-}
+      EMAIL_REPLY_DOMAIN: ${EMAIL_REPLY_DOMAIN:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - '5002:5002'
+    volumes:
+      - nura_uploads:/app/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        API_INTERNAL_URL: http://api:5002
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:5002
+    ports:
+      - '4000:4000'
+
+volumes:
+  nura_postgres:
+  nura_uploads:

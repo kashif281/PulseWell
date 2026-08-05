@@ -1,0 +1,38 @@
+{
+  "name": "pulseai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PulseAI - AI Employee Health & Wellness Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:both": "node scripts/dev.mjs",
+    "dev:api": "node scripts/run-api.mjs",
+    "dev:web": "node scripts/run-web.mjs",
+    "stop": "node scripts/kill-ports.mjs all",
+    "stop:api": "node scripts/kill-ports.mjs api",
+    "stop:web": "node scripts/kill-ports.mjs web",
+    "build:packages": "npm run build -w @pulseai/config && npm run build -w @pulseai/types && npm run build -w @pulseai/utils",
+    "build": "npm run build:packages && npm run build -w @pulseai/api && npm run build -w @pulseai/web",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "node prisma/seed.js",
+    "data:encrypt-sensitive": "node --env-file=.env scripts/encrypt-sensitive-data.mjs",
+    "test": "npm run test -w @pulseai/api -- --runInBand && npm run test -w @pulseai/utils -- --runInBand",
+    "lint": "npm run lint -w @pulseai/api && npm run lint -w @pulseai/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prisma": "^6.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

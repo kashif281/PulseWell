@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pulseai-postgres
+    restart: unless-stopped
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: pulseai
+      POSTGRES_PASSWORD: pulseai_dev
+      POSTGRES_DB: pulseai
+    volumes:
+      - pulseai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pulseai -d pulseai']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pulseai_pgdata:

@@ -1,0 +1,31 @@
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/types/package.json packages/types/package.json
+COPY packages/utils/package.json packages/utils/package.json
+RUN npm ci
+
+COPY . .
+ARG API_INTERNAL_URL=http://api:5002
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
+RUN npm run build:packages && npm run build -w @pulseai/web
+
+FROM node:20-bookworm-slim AS runtime
+ENV NODE_ENV=production
+ENV API_INTERNAL_URL=http://api:5002
+WORKDIR /app
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/apps/web/package.json ./apps/web/package.json
+COPY --from=build /app/apps/web/.next ./apps/web/.next
+COPY --from=build /app/apps/web/public ./apps/web/public
+
+USER node
+EXPOSE 4000
+CMD ["npm", "run", "start", "-w", "@pulseai/web"]

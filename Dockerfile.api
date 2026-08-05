@@ -1,0 +1,32 @@
+FROM node:20-bookworm-slim AS build
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/config/package.json packages/config/package.json
+COPY packages/types/package.json packages/types/package.json
+COPY packages/utils/package.json packages/utils/package.json
+RUN npm ci
+
+COPY . .
+RUN npm run db:generate && npm run build:packages && npm run build -w @pulseai/api
+
+FROM node:20-bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/package.json /app/package-lock.json ./
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
+
+USER node
+EXPOSE 5002
+CMD ["sh", "-c", "npm run db:deploy && node apps/api/dist/main"]
