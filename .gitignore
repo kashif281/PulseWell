@@ -1,8 +1,6 @@
 node_modules/
 dist/
 .next/
-.env
-.env.local
 *.log
 .DS_Store
 coverage/
@@ -10,4 +8,4 @@ coverage/
 uploads/
 *.tsbuildinfo
 .vercel
-.env*
+config.bat

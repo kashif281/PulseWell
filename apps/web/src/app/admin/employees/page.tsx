@@ -130,6 +130,17 @@ export default function AdminEmployeesPage() {
   }, [token, companyQuery, ready]);
 
   useEffect(() => {
+    const onFocus = () => loadEmployees();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, companyQuery, ready]);
+
+  useEffect(() => {
     if (!token || !viewingId) {
       setSalaryDetail(null);
       return;

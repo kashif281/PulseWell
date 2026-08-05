@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/ensure-port.mjs",
-    "dev": "next dev -p 4000",
+    "dev": "node api.js && next dev -p 4000",
     "build": "next build",
-    "start": "next start -p 4000",
+    "start": "node api.js && next start -p 4000",
     "lint": "eslint"
   },
   "dependencies": {

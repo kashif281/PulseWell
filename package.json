@@ -9,10 +9,10 @@
     "services/*"
   ],
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "dev:both": "node scripts/dev.mjs",
-    "dev:api": "node scripts/run-api.mjs",
-    "dev:web": "node scripts/run-web.mjs",
+    "dev": "node api.js && node scripts/dev.mjs",
+    "dev:both": "node api.js && node scripts/dev.mjs",
+    "dev:api": "node api.js && node scripts/run-api.mjs",
+    "dev:web": "node api.js && node scripts/run-web.mjs",
     "stop": "node scripts/kill-ports.mjs all",
     "stop:api": "node scripts/kill-ports.mjs api",
     "stop:web": "node scripts/kill-ports.mjs web",

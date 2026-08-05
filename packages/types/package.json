@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "node api.js && tsc --watch"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
