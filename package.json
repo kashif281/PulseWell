@@ -18,6 +18,7 @@
     "stop:web": "node scripts/kill-ports.mjs web",
     "build:packages": "npm run build -w @pulseai/config && npm run build -w @pulseai/types && npm run build -w @pulseai/utils",
     "build": "npm run build:packages && npm run build -w @pulseai/api && npm run build -w @pulseai/web",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
