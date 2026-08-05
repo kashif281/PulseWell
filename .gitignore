@@ -9,3 +9,5 @@ coverage/
 .turbo/
 uploads/
 *.tsbuildinfo
+.vercel
+.env*
